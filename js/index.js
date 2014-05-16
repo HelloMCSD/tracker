@@ -1,9 +1,15 @@
+/* globals $ */
+"use strict";
+
 $(document).ready(function(){
-    
+
+    var mytracker;
+    var record = false;
     var geoarray = [];
     var lat, long, twoPointsDis;
     var last_pos, cur_pos;
     var totalDis = 0; 
+    
     function calculateDistance(lat1, lon1, lat2, lon2) {
         var R = 6371; // km
         var dLat = (lat2-lat1).toRad();
@@ -14,54 +20,91 @@ $(document).ready(function(){
         var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         var d = R * c;
         return d;
-    };
+    }
     Number.prototype.toRad = function() {
         return this * Math.PI / 180;
     };
+    function getPosition(position) {
+        lat = position.coords.latitude;
+        long = position.coords.longitude;
+        if(geoarray.length > 0){
+           last_pos = geoarray[geoarray.length - 1];
+        } else {
+           last_pos = {lat: lat, long: long, dis: 0};
+        }
+        twoPointsDis = calculateDistance(lat, long,
+                                         last_pos.lat, last_pos.long);
+        if( twoPointsDis > 0.015) {
+            twoPointsDis = 0;
+        }
+        
+        cur_pos = {lat: lat, long: long, dis: twoPointsDis};                               
+        geoarray.push(cur_pos);
+        
+        totalDis = 0; 
+        for (var i = 0; i < geoarray.length; i++) {
+           totalDis = totalDis + geoarray[i].dis;
+        }
+        $('#cur_pos').html("<h2>"+(new Date()).toUTCString()+"</h2><div><i>lat: "+cur_pos.lat +
+                            "</i>: <i>long: "+cur_pos.long+
+                            "</i> LastDist: <b>"+twoPointsDis+
+                            "</b></i> Total Distance: <b>"+totalDis+"</b></div>");
+    }
     
-    if (navigator.geolocation) {
-        function getPosition(position) {
-            lat = position.coords.latitude;
-            long = position.coords.longitude;
-            if(geoarray.length > 0){
-               last_pos = geoarray[geoarray.length - 1];
-            } else {
-               last_pos = {lat: lat, long: long};
+    function run(){
+        navigator.geolocation.getCurrentPosition(getPosition);
+    }
+    
+    function start(){
+        geoarray = [];
+        record = true;
+        mytracker  = setInterval(run, 10000);
+    }
+    
+    function stopp(){
+        var key;
+        var keyarray = [];
+        record = false;
+        window.clearInterval(mytracker);
+        $('#cur_pos').html("<h2>"+ geoarray.length +" Positions saved in Array</h2>"+
+                        "<h3> Total Distance: <u>"+totalDis*1000+" Meter moved</u></h3>");
+        key = "Tracker" + Date.now();
+        window.localStorage.setItem(key,JSON.stringify(geoarray));
+        if(window.localStorage.getItem("tracker")) {
+           keyarray = JSON.parse(window.localStorage.getItem("tracker"));
+        }
+        keyarray.push(key);
+        window.localStorage.setItem("tracker", JSON.stringify(keyarray));
+    }
+    
+    function gesamt(){
+        console.log(" beginn gesamt");
+        var keys, i, j, einzelstrecke=[], laenge=0;
+        keys = JSON.parse(window.localStorage.getItem("tracker"));
+        console.log('keys = ', keys, 'keys.length = ', keys.length, 'typeof keys = ', typeof keys);
+        if (keys.length > 0) {
+            for(i=0; i< keys.length; i++){
+                console.log('keys[i] = ', keys[i]);
+                einzelstrecke = JSON.parse(window.localStorage.getItem(keys[i]));
+                console.log("einezelstrecke = ",einzelstrecke);
+                for(j=0; j < einzelstrecke.length; j++){
+                    laenge += einzelstrecke[j].dis;
+                }
             }
-            twoPointsDis = calculateDistance(lat, long,
-                                             last_pos.lat, last_pos.long);
             
-            cur_pos = {lat: lat, long: long, dis: twoPointsDis};                               
-            geoarray.push(cur_pos);
-            
-           // console.log(geoarray.length);
-           for (var i = 0; i < geoarray.length; i++) {
-               totalDis = totalDis + geoarray[i].dis;
-           }
-           $('#cur_pos').append("<div><i>"+cur_pos.lat +"</i>: <i>"+cur_pos.long+"</i> Dist: <b>"+twoPointsDis+"</b></div>" +
-           "</i> Total Distance: <b>"+totalDis+"</b></div>");
+            $('#cur_pos').html("Gesamtlaenge: "+laenge);
+        } else {
+            $('#cur_pos').html("Keine Daten vorhanden");
+        }
+    }
 
-        };
-        
-        function run(){
-            navigator.geolocation.getCurrentPosition(getPosition);
-        };
-        
-        var mytracker;
-        
-        function start(){
-            mytracker  = setInterval(run, 2000);
-        };
-        
-        function stopp(){
-            window.clearInterval(mytracker);
-        };
-        
+    if (navigator.geolocation) {
         $("#start").on("click", start);
         $("#stopp").on("click", stopp);
+        $("#gesamt").on("click", gesamt);
     }
     else {
-      console.log('Geolocation is not supported for this Browser/OS version yet.');
+        console.log('Geolocation is not supported for this Browser/OS version yet.');
     }
     
 });
