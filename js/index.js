@@ -9,6 +9,7 @@ $(document).ready(function(){
     var lat, long, twoPointsDis;
     var last_pos, cur_pos;
     var totalDis = 0; 
+    var d = 0;
     
     function calculateDistance(lat1, lon1, lat2, lon2) {
         var R = 6371; // km
@@ -30,14 +31,11 @@ $(document).ready(function(){
         if(geoarray.length > 0){
            last_pos = geoarray[geoarray.length - 1];
         } else {
-           last_pos = {lat: lat, long: long, dis: 0};
+           last_pos = {lat: lat, long: long};
         }
         twoPointsDis = calculateDistance(lat, long,
                                          last_pos.lat, last_pos.long);
-        if( twoPointsDis > 0.015) {
-            twoPointsDis = 0;
-        }
-        
+
         cur_pos = {lat: lat, long: long, dis: twoPointsDis};                               
         geoarray.push(cur_pos);
         
@@ -58,10 +56,11 @@ $(document).ready(function(){
     function start(){
         geoarray = [];
         record = true;
-        mytracker  = setInterval(run, 10000);
+        mytracker  = setInterval(run, 5000);
     }
     
     function stopp(){
+        console.log(" beginn stopp");
         var key;
         var keyarray = [];
         record = false;
@@ -70,31 +69,70 @@ $(document).ready(function(){
                         "<h3> Total Distance: <u>"+totalDis*1000+" Meter moved</u></h3>");
         key = "Tracker" + Date.now();
         window.localStorage.setItem(key,JSON.stringify(geoarray));
+        console.log(JSON.stringify(geoarray));
         if(window.localStorage.getItem("tracker")) {
            keyarray = JSON.parse(window.localStorage.getItem("tracker"));
         }
         keyarray.push(key);
         window.localStorage.setItem("tracker", JSON.stringify(keyarray));
+                console.log("end stopp");
+
+    }
+    
+    function getPerX(elem){
+        var elements = {};
+        var keys;
+        keys = JSON.parse(window.localStorage.getItem("tracker"));
+        keys.forEach(function(key){
+            var _elements;
+            var steps = JSON.parse(window.localStorage.getItem(key));
+            var d = new Date(+key.split("Tracker")[1]);
+            if(elem === 'month'){
+                _elements = d.getMonth();
+            };
+            if(elem === 'day'){
+                _elements = d.getDay();
+            };
+            if(elem === 'min'){
+                _elements = d.getMinutes();
+            };
+            
+            if(elements[_elements] === undefined){
+                elements[_elements] = 0;
+            }
+            steps.forEach(function(step){
+                elements[_elements] += step.dis;
+            });
+        });
+        return elements;
     }
     
     function gesamt(){
         console.log(" beginn gesamt");
-        var keys, i, j, einzelstrecke=[], laenge=0;
+        var keys, i, j, einzelstrecke=[], laenge=0, count=0;
         keys = JSON.parse(window.localStorage.getItem("tracker"));
-        console.log('keys = ', keys, 'keys.length = ', keys.length, 'typeof keys = ', typeof keys);
+        console.log(keys);
         if (keys.length > 0) {
             for(i=0; i< keys.length; i++){
-                console.log('keys[i] = ', keys[i]);
+                console.log(keys[i]);
                 einzelstrecke = JSON.parse(window.localStorage.getItem(keys[i]));
-                console.log("einezelstrecke = ",einzelstrecke);
+                console.log(einzelstrecke);
                 for(j=0; j < einzelstrecke.length; j++){
                     laenge += einzelstrecke[j].dis;
+                    count++;
                 }
             }
             
-            $('#cur_pos').html("Gesamtlaenge: "+laenge);
+            d = (laenge*1000).toFixed();
+            if (d < 10000) {
+                d = d + ' m';
+            } else {
+                d = (d / 1000).toFixed(2) + ' km';
+            }
+            
+            $('#cur_pos').html("Gesamtstrecke: " + d + " | Messwerte: " + count);
         } else {
-            $('#cur_pos').html("Keine Daten vorhanden");
+            $('#cur_pos').html("keine Daten vorhanden");
         }
     }
 
@@ -102,6 +140,8 @@ $(document).ready(function(){
         $("#start").on("click", start);
         $("#stopp").on("click", stopp);
         $("#gesamt").on("click", gesamt);
+        $("#testminutes").on("click", function() { console.log( JSON.stringify(getPerX('min')) ); });
+        $("#testmonth").on("click", function() { console.log( JSON.stringify(getPerX('month')) ); });
     }
     else {
         console.log('Geolocation is not supported for this Browser/OS version yet.');
