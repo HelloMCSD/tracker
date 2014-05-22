@@ -1,7 +1,7 @@
 body {
     margin: 0px;
 }
-#start, #stopp, #gesamt {
+#startstop, #gesamt {
 	display: block;
 	margin: 1em auto;
 	width: 95%;
